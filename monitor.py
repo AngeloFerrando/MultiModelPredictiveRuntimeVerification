@@ -4,6 +4,7 @@ import spot
 import buddy
 import argparse
 from enum import Enum
+import time
 
 class CompositionMonitor:
     def __init__(self, op, left, right):
@@ -92,13 +93,14 @@ class PredictiveMonitor:
         l = 0
         before = self.__product_phi.get_init_state_number()
         for t in self.__product_phi.out(self.__product_phi.get_init_state_number()):
+            # print(str(t.dst))
+            # print(str(spot.bdd_format_formula(self.__product_phi.get_dict(), t.cond)))
+            # print(str(spot.bdd_format_formula(self.__product_phi.get_dict(), event)))
             if (t.cond & event) != buddy.bddfalse and len(spot.bdd_format_formula(self.__product_phi.get_dict(), t.cond)) > l:
-                # print(str(t.cond))
-                # print(str(event))
                 self.__product_phi.set_init_state(t.dst)
                 next = True
                 l = len(spot.bdd_format_formula(self.__product_phi.get_dict(), t.cond))
-        print(str(before) + ' -> ' + str(self.__product_phi.get_init_state_number()))
+        # print(str(before) + ' -> ' + str(self.__product_phi.get_init_state_number()))
         if not next:
             self.__last_verdict = Verdict.ff
             return Verdict.ff
@@ -143,6 +145,7 @@ def contextualise(property, models):
     for (m, m_ap) in models_ap:
         if not aps.isdisjoint(m_ap):
             models_of_interest.append(m)
+    # print('Models of interest: ' + str(models_of_interest))
     combination = None
     for m in models_of_interest:
         if combination is None:
@@ -181,14 +184,6 @@ def extract_root_composition_monitor():
                 to_remove.add(f1)
     composition_monitors = [x for x in composition_monitors if x not in to_remove]
 
-# f.traverse(countg)
-
-# def m():
-# bdict = spot.make_bdd_dict()
-# aut = spot.make_twa_graph(bdict)
-
-
-
 def parallel(left, right):
     bdict = left.get_dict()
     if right.get_dict() != bdict:
@@ -218,20 +213,50 @@ def parallel(left, right):
     result.set_acceptance(shift + right.num_sets(),
                           left.get_acceptance() & (right.get_acceptance() << shift))
 
+    common_aps = set()
+    for ap in left.ap():
+        if ap in right.ap():
+            common_aps.add(str(ap))
+
     while todo:
         lsrc, rsrc, osrc = todo.pop()
         for lt in left.out(lsrc):
+            must_aps = set()
+            # must_not_aps = set()
+            lt_str_cond = str(spot.bdd_format_formula(result.get_dict(), lt.cond))
+            for ap in common_aps:
+                if str(ap) in lt_str_cond and ('!' + str(ap)) not in lt_str_cond:
+                    must_aps.add(ap)
+                # if ('!' + str(ap)) in lt_str_cond:
+                #     must_not_aps.add(ap)
+            # print(must_aps)
+            # print(must_not_aps)
             for rt in right.out(rsrc):
-                cond = lt.cond
-                if cond != buddy.bddfalse:
-                    # membership of this transitions to the new acceptance sets
-                    acc = lt.acc | (rt.acc << shift)
-                    result.new_edge(osrc, dst(lt.dst, rt.src), cond, acc)
-                cond = rt.cond
-                if cond != buddy.bddfalse:
-                    # membership of this transitions to the new acceptance sets
-                    acc = lt.acc | (rt.acc << shift)
-                    result.new_edge(osrc, dst(lt.src, rt.dst), cond, acc)
+                rt_str_cond = str(spot.bdd_format_formula(result.get_dict(), rt.cond))
+                valid = True
+                for ap in must_aps:
+                    if str(ap) not in rt_str_cond or ('!' + str(ap)) in rt_str_cond:
+                        valid = False
+                        break
+                if not valid:
+                    continue
+                # for ap in must_not_aps:
+                #     if ('!' + str(ap)) not in rt_str_cond:
+                #         valid = False
+                #         break
+                # if not valid:
+                #     continue
+                if not must_aps: # parallel transition
+                    cond = lt.cond
+                    if cond != buddy.bddfalse:
+                        # membership of this transitions to the new acceptance sets
+                        acc = lt.acc | (rt.acc << shift)
+                        result.new_edge(osrc, dst(lt.dst, rt.src), cond, acc)
+                    cond = rt.cond
+                    if cond != buddy.bddfalse:
+                        # membership of this transitions to the new acceptance sets
+                        acc = lt.acc | (rt.acc << shift)
+                        result.new_edge(osrc, dst(lt.src, rt.dst), cond, acc)
                 cond = lt.cond & rt.cond
                 if cond != buddy.bddfalse:
                     # membership of this transitions to the new acceptance sets
@@ -240,18 +265,6 @@ def parallel(left, right):
     result.merge_edges()
     return result
 
-
-# formula = 'Ga | Gb'
-# # system = spot.formula('G(a & !b) | G(!a & b)').translate()
-# models = []
-# models.append(spot.automaton('model0.hoa'))
-# models.append(spot.automaton('model1.hoa'))
-# models.append(spot.automaton('model2.hoa'))
-# system = parallel(models[0], models[1])
-# # system = parallel(system, models[2])
-# predictive_monitor = PredictiveMonitor(formula, system)
-# monitor = spot.translate(formula, 'monitor', 'det')
-
 def main(argv):
     parser = argparse.ArgumentParser(
         description='Python prototype of Multi-Model Predictive Runtime Verification',
@@ -259,9 +272,13 @@ def main(argv):
     parser.add_argument('formula',
         help='LTL formula to verify',
         type=str)
+    # parser.add_argument('trace',
+    #     help='the trace to analyse',
+    #     nargs='+',
+    #     type=str
+    # )
     parser.add_argument('trace',
         help='the trace to analyse',
-        nargs='+',
         type=str
     )
     parser.add_argument('--models',
@@ -275,18 +292,21 @@ def main(argv):
     if not args.models and (args.multi or args.single):
         print('When multi-model predictive is selected, you have to pass the list of models as well (--models)')
         return
-    models = []
-    if args.models:
-        for m in args.models:
-            models.append(spot.automaton(m))
+    start_time = time.time()
     system = None
-    for m in models:
-        if not system:
-            system = m
-        else:
-            system = parallel(system, m)
+    if args.single or args.multi:
+        models = []
+        if args.models:
+            for m in args.models:
+                models.append(spot.automaton(m))
+        for m in models:
+            if not system:
+                system = m
+            else:
+                system = parallel(system, m)
     if args.single:
         contextualised_model = contextualise(spot.formula(args.formula), models)
+        # print(contextualised_model.to_str('hoa'))
         if contextualised_model:
             monitor = PredictiveMonitor(args.formula, contextualised_model)
         else:
@@ -307,48 +327,58 @@ def main(argv):
             monitor = composition_monitors[0]
     else:
         monitor = spot.translate(args.formula, 'monitor', 'det')
+    generation_time = time.time() - start_time
     aps = set()
     def get_aps(f):
         if f.is_literal():
             aps.add(f)
         return False
     spot.formula(args.formula).traverse(get_aps)
-    for m in models:
-        aps.update(m.ap())
+    if args.single or args.multi:
+        for m in models:
+            aps.update(m.ap())
     if not system:
         system = spot.formula(args.formula).translate()
     i = 0
-    for ev in args.trace:
-        print('event#' + str(i) + ': ' + ev)
-        i = i+1
-        event = buddy.bddtrue
-        for ap in aps:
-            if str(ap).startswith('!'): continue
-            if ev == str(ap):
-                a = system.register_ap(str(ap))
-                bdda = buddy.bdd_ithvar(a)
-                event = event & bdda
-            else:
-                a = system.register_ap(str(ap))
-                nbdda = buddy.bdd_nithvar(a)
-                event = event & nbdda
-        next = False
-        l = 0
-        if args.single or args.multi:
-            res = monitor.next((ev, event))
-            print('res: ' + str(res))
-            if res == Verdict.tt or res == Verdict.ff:
-                break
-        else:
-            for t in monitor.out(monitor.get_init_state_number()):
-                if (t.cond & event) != buddy.bddfalse and len(spot.bdd_format_formula(monitor.get_dict(), t.cond)) > l:
-                    monitor.set_init_state(t.dst)
-                    next = True
-                    l = len(spot.bdd_format_formula(monitor.get_dict(), t.cond))
-            if not next:
-                print('res: FALSE')
-            else:
-                print('res: ?')
+    start_time = time.time()
+    with open(args.trace) as fp:
+       ev = fp.readline()
+       ev = ev.replace('\n', '')
+       while ev:
+           # print('event#' + str(i) + ': ' + ev)
+           i = i+1
+           event = buddy.bddtrue
+           for ap in aps:
+               if str(ap).startswith('!'): continue
+               if ev == str(ap):
+                   a = system.register_ap(str(ap))
+                   bdda = buddy.bdd_ithvar(a)
+                   event = event & bdda
+               else:
+                   a = system.register_ap(str(ap))
+                   nbdda = buddy.bdd_nithvar(a)
+                   event = event & nbdda
+           next = False
+           l = 0
+           if args.single or args.multi:
+               res = monitor.next((ev, event))
+               print('res: ' + str(res))
+               if res == Verdict.tt or res == Verdict.ff:
+                   break
+           else:
+               for t in monitor.out(monitor.get_init_state_number()):
+                   if (t.cond & event) != buddy.bddfalse and len(spot.bdd_format_formula(monitor.get_dict(), t.cond)) > l:
+                       monitor.set_init_state(t.dst)
+                       next = True
+                       l = len(spot.bdd_format_formula(monitor.get_dict(), t.cond))
+               if not next:
+                   print('res: FALSE')
+                   break
+               else:
+                   print('res: ?')
+           ev = fp.readline().replace('\n', '')
+    verification_time = time.time() - start_time
+    print(str(generation_time) + ';' + str(verification_time))
 
 if __name__ == '__main__':
     main(sys.argv)
