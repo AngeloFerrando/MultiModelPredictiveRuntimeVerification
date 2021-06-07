@@ -229,8 +229,6 @@ def parallel(left, right):
                     must_aps.add(ap)
                 # if ('!' + str(ap)) in lt_str_cond:
                 #     must_not_aps.add(ap)
-            # print(must_aps)
-            # print(must_not_aps)
             for rt in right.out(rsrc):
                 rt_str_cond = str(spot.bdd_format_formula(result.get_dict(), rt.cond))
                 valid = True
