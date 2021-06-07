@@ -238,12 +238,6 @@ def parallel(left, right):
                         break
                 if not valid:
                     continue
-                # for ap in must_not_aps:
-                #     if ('!' + str(ap)) not in rt_str_cond:
-                #         valid = False
-                #         break
-                # if not valid:
-                #     continue
                 if not must_aps: # parallel transition
                     cond = lt.cond
                     if cond != buddy.bddfalse:
