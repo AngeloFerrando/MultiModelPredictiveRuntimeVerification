@@ -41,11 +41,11 @@ def main(argv):
     max = int(argv[2])
     step = int(argv[3])
     reps = int(argv[4])
-    n_models = int(argv[5])
+    # n_models = int(argv[5])
     property = '\'(G(forward_wh->(!stop_wh U set_wheels_speed_0_wh))) & (G(move_to_A_ag->(!action_fail_ag U move_to_B_ag)))\''
-    models = ''
-    for i in range(0, n_models):
-        models = models + './models/wheels.hoa ./models/agent.hoa '
+    models = './models/wheels.hoa ./models/agent.hoa '
+    # for i in range(0, n_models):
+    #     models = models + './models/wheels.hoa ./models/agent.hoa '
     t = str(time.time())
     f = open('res' + t + '.csv', 'w')
     f.close()
@@ -55,24 +55,24 @@ def main(argv):
         standard_time_ver = 0
         for j in range(0, reps):
             res = os.popen('python3 monitor.py {phi} trace.txt --models {m}'.format(phi=property, m=models)).read()
-            standard_time_gen = standard_time_gen + float(res.split(';')[0])
-            standard_time_ver = standard_time_ver + float(res.split(';')[1])
+            standard_time_gen = standard_time_gen + float(res.split(';')[1])
+            standard_time_ver = standard_time_ver + float(res.split(';')[2])
         standard_time_gen = standard_time_gen / reps
         standard_time_ver = standard_time_ver / reps
         single_time_gen = 0
         single_time_ver = 0
         for j in range(0, reps):
-            res = os.popen('python3 monitor.py {phi} trace.txt --models {m} --single'.format(phi=property, m=models)).read()
-            single_time_gen = single_time_gen + float(res.split(';')[0])
-            single_time_ver = single_time_ver + float(res.split(';')[1])
+            res = os.popen('python3 monitor.py {phi} trace.txt --models {m} --centralised'.format(phi=property, m=models)).read()
+            single_time_gen = single_time_gen + float(res.split(';')[1])
+            single_time_ver = single_time_ver + float(res.split(';')[2])
         single_time_gen = single_time_gen / reps
         single_time_ver = single_time_ver / reps
         multi_time_gen = 0
         multi_time_ver = 0
         for j in range(0, reps):
-            res = os.popen('python3 monitor.py {phi} trace.txt --models {m} --multi'.format(phi=property, m=models)).read()
-            multi_time_gen = multi_time_gen + float(res.split(';')[0])
-            multi_time_ver = multi_time_ver + float(res.split(';')[1])
+            res = os.popen('python3 monitor.py {phi} trace.txt --models {m} --composition'.format(phi=property, m=models)).read()
+            multi_time_gen = multi_time_gen + float(res.split(';')[1])
+            multi_time_ver = multi_time_ver + float(res.split(';')[2])
         multi_time_gen = multi_time_gen / reps
         multi_time_ver = multi_time_ver / reps
         with open('res' + t + '.csv', 'a') as f:

@@ -277,16 +277,16 @@ def main(argv):
         help='LTL formula to verify',
         nargs='+',
         type=str)
-    parser.add_argument('--single', action='store_true')
-    parser.add_argument('--multi', action='store_true')
+    parser.add_argument('--centralised', action='store_true')
+    parser.add_argument('--composition', action='store_true')
     args = parser.parse_args() # maybe in the future we will need more arguments, for now it's just one
 
-    if not args.models and (args.multi or args.single):
+    if not args.models and (args.composition or args.centralised):
         print('When multi-model predictive is selected, you have to pass the list of models as well (--models)')
         return
     start_time = time.time()
     system = None
-    if args.single or args.multi:
+    if args.centralised or args.composition:
         models = []
         if args.models:
             for m in args.models:
@@ -296,7 +296,7 @@ def main(argv):
                 system = m
             else:
                 system = parallel(system, m)
-    if args.single:
+    if args.centralised:
         contextualised_model = contextualise(spot.formula(args.formula), models)
         # print(contextualised_model.to_str('hoa'))
         if contextualised_model:
@@ -304,7 +304,7 @@ def main(argv):
         else:
             print('Formula (or sub-formula) and Models do not share any common events')
             return
-    elif args.multi:
+    elif args.composition:
         spot.formula(args.formula).traverse(decompose)
         extract_root_composition_monitor()
         if not composition_monitors:
@@ -326,7 +326,7 @@ def main(argv):
             aps.add(f)
         return False
     spot.formula(args.formula).traverse(get_aps)
-    if args.single or args.multi:
+    if args.centralised or args.composition:
         for m in models:
             aps.update(m.ap())
     if not system:
@@ -352,10 +352,14 @@ def main(argv):
                    event = event & nbdda
            next = False
            l = 0
-           if args.single or args.multi:
+           if args.centralised or args.composition:
                res = monitor.next((ev, event))
-               print('res: ' + str(res))
-               if res == Verdict.tt or res == Verdict.ff:
+               # print('res: ' + str(res))
+               if res == Verdict.tt:
+                   res = 'TRUE'
+                   break
+               if res == Verdict.ff:
+                   res = 'FALSE'
                    break
            else:
                for t in monitor.out(monitor.get_init_state_number()):
@@ -364,13 +368,14 @@ def main(argv):
                        next = True
                        l = len(spot.bdd_format_formula(monitor.get_dict(), t.cond))
                if not next:
-                   print('res: FALSE')
+                   res = 'FALSE'
                    break
-               else:
-                   print('res: ?')
+               # else:
+               #     print('res: ?')
+           res = '?'
            ev = fp.readline().replace('\n', '')
     verification_time = time.time() - start_time
-    print(str(generation_time) + ';' + str(verification_time))
+    print('RES: ' + str(res) + ';' + str(generation_time) + ';' + str(verification_time))
 
 if __name__ == '__main__':
     main(sys.argv)
