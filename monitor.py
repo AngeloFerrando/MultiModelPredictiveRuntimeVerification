@@ -91,7 +91,7 @@ class PredictiveMonitor:
         event = event_tuple[1]
         next = False
         l = 0
-        print(self.__product_not_phi.to_str('hoa'))
+        # print(self.__product_not_phi.to_str('hoa'))
         before = self.__product_phi.get_init_state_number()
         for t in self.__product_phi.out(self.__product_phi.get_init_state_number()):
             # print(str(t.dst))
