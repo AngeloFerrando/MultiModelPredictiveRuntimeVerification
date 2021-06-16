@@ -280,7 +280,7 @@ def main(argv):
         type=str)
     parser.add_argument('--centralised', action='store_true')
     parser.add_argument('--composition', action='store_true')
-    args = parser.parse_args() # maybe in the future we will need more arguments, for now it's just one
+    args = parser.parse_args()
 
     if not args.models and (args.composition or args.centralised):
         print('When multi-model predictive is selected, you have to pass the list of models as well (--models)')
