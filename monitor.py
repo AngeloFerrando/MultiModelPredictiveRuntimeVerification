@@ -77,7 +77,7 @@ class Verdict(Enum):
 class PredictiveMonitor:
     def __init__(self, formula, model):
         phi = spot.formula(formula)
-        not_phi = spot.formula('!' + formula)
+        not_phi = spot.formula('!(' + formula + ')')
         buchi = phi.translate()
         not_buchi = not_phi.translate()
         self.__product_phi = spot.product(model, buchi)
@@ -91,6 +91,7 @@ class PredictiveMonitor:
         event = event_tuple[1]
         next = False
         l = 0
+        print(self.__product_not_phi.to_str('hoa'))
         before = self.__product_phi.get_init_state_number()
         for t in self.__product_phi.out(self.__product_phi.get_init_state_number()):
             # print(str(t.dst))
@@ -100,7 +101,7 @@ class PredictiveMonitor:
                 self.__product_phi.set_init_state(t.dst)
                 next = True
                 l = len(spot.bdd_format_formula(self.__product_phi.get_dict(), t.cond))
-        # print(str(before) + ' -> ' + str(self.__product_phi.get_init_state_number()))
+        print(str(before) + ' -> ' + str(self.__product_phi.get_init_state_number()))
         if not next:
             self.__last_verdict = Verdict.ff
             return Verdict.ff
