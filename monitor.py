@@ -101,7 +101,7 @@ class PredictiveMonitor:
                 self.__product_phi.set_init_state(t.dst)
                 next = True
                 l = len(spot.bdd_format_formula(self.__product_phi.get_dict(), t.cond))
-        print(str(before) + ' -> ' + str(self.__product_phi.get_init_state_number()))
+        # print(str(before) + ' -> ' + str(self.__product_phi.get_init_state_number()))
         if not next:
             self.__last_verdict = Verdict.ff
             return Verdict.ff
